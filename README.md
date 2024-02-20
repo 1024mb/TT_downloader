@@ -32,6 +32,7 @@ options:
 
 - You can specify one or more URLs and/or specify a text file containing URLs (one on each line). Both options can be
   used at the same time.
+- The pattern is required, directories will be automatically created.
 - Photos are downloaded with user watermark to get the higher resolution possible.
 - This program is intended to be used with the URLs YT-DLP isn't able to download as not all videos are downloaded with
   the higher resolution available.
@@ -46,13 +47,13 @@ options:
 Examples:
 
 ```shell
-TT_downloader https://www.tiktok.com/@xxxxxxx/photo/YYYYYYY https://www.tiktok.com/@xxxxxxx/video/WWWWWW --list-file urls.txt
+TT_downloader https://www.tiktok.com/@xxxxxxx/photo/YYYYYYY https://www.tiktok.com/@xxxxxxx/video/WWWWWW --list-file urls.txt --pattern "%media_id%"
 ```
 
 ```shell
-TT_downloader https://www.tiktok.com/@xxxxxxx/video/YYYYYYY
+TT_downloader https://www.tiktok.com/@xxxxxxx/video/YYYYYYY --pattern "%media_id%"
 ```
 
 ```shell
-TT_downloader --list-file urls.txt
+TT_downloader --list-file urls.txt --pattern "TT/%author_id%/%media_id%"
 ```
