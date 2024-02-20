@@ -86,7 +86,7 @@ def main():
     logging.basicConfig(level=log_level, format="%(asctime)s %(levelname)s: %(message)s")
 
     if len(url) == 0 and url_list_file is None:
-        logging.error("No URL or list file was provided.")
+        logging.critical("No URL or list file was provided.")
         sys.exit(1)
 
     if os.path.isdir(archive_file):
@@ -278,7 +278,7 @@ def download_data(url: str,
             os.remove(output_file)
         except FileNotFoundError:
             pass
-        exit(1)
+        sys.exit(1)
     except PermissionError as e:
         logging.critical(f"Could not create file: {output_file}")
         logging.critical(e)
@@ -286,7 +286,7 @@ def download_data(url: str,
             os.remove(output_file)
         except FileNotFoundError:
             pass
-        exit(1)
+        sys.exit(1)
 
     try:
         for chunk in response:
