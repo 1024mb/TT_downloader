@@ -38,6 +38,8 @@ options:
 - The archive file is compatible with yt-dlp's.
 - Files modification time is set to the media's upload date.
 - Files won't be overwritten, if the output file already exists, a suffix is added to the new file.
+- If the ID is present in the archive file the url will be skipped, if it's not present and the file already exists it
+  won't be neither skipped nor overwritten, a suffix will be appended.
 - The description max length is 190 characters, if it's longer the rest of the description is discarded.
 - The username max length is 40 characters, if it's longer the rest of the username is discarded.
 
