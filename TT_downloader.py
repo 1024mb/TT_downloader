@@ -9,6 +9,8 @@ from typing import Optional, List, Tuple
 
 import requests
 
+from __init__ import __version__
+
 API_LIST = (
     "https://api19-core-c-useast1a.musical.ly/aweme/v1/feed/?aweme_id={}",
     "https://api16-normal-c-useast1a.tiktokv.com/aweme/v1/feed/?aweme_id={}",
@@ -51,6 +53,9 @@ global patterns
 def main():
     parser = argparse.ArgumentParser(prog="TT_downloader",
                                      description="Download TikTok videos")
+    parser.add_argument("-v", "--version",
+                        action="version",
+                        version=f"%(prog)s v{__version__}")
     parser.add_argument("url",
                         help="URL to download.",
                         nargs="*")
