@@ -65,8 +65,8 @@ def main():
                         default=None)
     parser.add_argument("--output-name",
                         help="Output name for the downloaded videos, available patterns: "
-                             "%description%, %author_id%, %author_name%, %media_height%, %media_width%, %media_id%, "
-                             "%mod_time%",
+                             "%%description%%, %%author_id%%, %%author_name%%, %%media_height%%, %%media_width%%, "
+                             "%%media_id%%, %%mod_time%%",
                         required=True,
                         nargs="?")
     parser.add_argument("--log-level",
