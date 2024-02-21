@@ -107,12 +107,13 @@ def main():
                     url_list.append(line.strip())
 
     for item in url:
-        url_list.append(item)
+        url_list.append(item.strip())
 
     for url in url_list:
         url_sanitized = sanitize_url(url)
         if url_sanitized is None:
             logging.warning(f"Skipping {url}")
+            continue
 
         download_success, media_id, already_downloaded = download_media(url=url_sanitized,
                                                                         output_name=output_name,
