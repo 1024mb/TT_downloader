@@ -94,9 +94,12 @@ def main():
         logging.critical("No URL or list file was provided.")
         sys.exit(1)
 
-    if os.path.isdir(archive_file):
+    if archive_file is not None and os.path.isdir(archive_file):
         logging.critical(f"Archive filepath is a directory: {archive_file}")
         sys.exit(1)
+
+    if url_list_file is not None and os.path.isdir(url_list_file):
+        logging.critical(f"List filepath is a directory: {url_list_file}")
 
     url_list = []
     if url_list_file is not None:
@@ -112,7 +115,7 @@ def main():
     for url in url_list:
         url_sanitized = sanitize_url(url)
         if url_sanitized is None:
-            logging.warning(f"Skipping {url}")
+            logging.warning(f"Skipping: {url}")
             continue
 
         download_success, media_id, already_downloaded = download_media(url=url_sanitized,
@@ -125,7 +128,8 @@ def main():
 
         if download_success:
             print(f"Download successful: {media_id}")
-            add_to_archive(archive_file, media_id)
+            if archive_file is not None:
+                add_to_archive(archive_file, media_id)
         else:
             logging.error(f"Failed to download: {media_id}")
 
