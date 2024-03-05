@@ -57,3 +57,31 @@ TT_downloader https://www.tiktok.com/@xxxxxxx/video/YYYYYYY --pattern "%media_id
 ```shell
 TT_downloader --list-file urls.txt --pattern "TT/%author_id%/%media_id%"
 ```
+
+## Patterns
+
+This works just like the output templates in yt-dlp. All directories in between will be created.
+
+For this video: `https://www.tiktok.com/@tiktok/video/7341092307438964011`
+
+These are the values per pattern:
+
+| pattern            | value                                                                                                                                                                                           |
+|--------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **%author_id%**    | 107955                                                                                                                                                                                          |
+| **%author_name%**  | tiktok                                                                                                                                                                                          |
+| **%media_id%**     | 7341092307438964011                                                                                                                                                                             |
+| **%mod_time%**     | 1709231261                                                                                                                                                                                      |
+| **%media_width%**  | 576                                                                                                                                                                                             |
+| **%media_height%** | 1024                                                                                                                                                                                            |
+| **%description%**  | You gotta love all the love being spread at the #VisionaryVoices Black History Month brunch! 🖤tag your favorite #BlackTikTok Creator that also deserves a shoutout #VisionaryVoices #BlackHist |
+
+If this is used:
+
+```shell
+TT_downloader https://www.tiktok.com/@tiktok/video/7341092307438964011 --output-name %author_name%\%media_id%
+```
+
+* A `tiktok` directory will be created if it doesn't exist.
+* The file will be saved inside as `7341092307438964011.mp4`.
+* Extensions are appended automatically.
