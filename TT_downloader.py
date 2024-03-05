@@ -279,8 +279,13 @@ def download_data(url: str,
 
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
+    if PLATFORM == "win32" or PLATFORM == "msys" or PLATFORM == "cygwin":
+        output_file = "\\\\?\\".encode(encoding="utf-8") + output_file.encode(encoding="utf-8")
+    else:
+        output_file = output_file.encode(encoding="utf-8")
+
     try:
-        stream_file = open(output_file.encode(encoding="utf-8"), mode="wb", buffering=0)
+        stream_file = open(output_file, mode="wb", buffering=0)
     except UnicodeEncodeError as e:
         logging.critical(f"Could not create file: {output_file}")
         logging.critical(e)
@@ -492,7 +497,7 @@ def get_api_data(media_id: str,
 
 def add_to_archive(archive_file: str,
                    media_id: str) -> None:
-    with open(archive_file, "a") as f:
+    with open(archive_file, "a", encoding="utf-8", errors="slashreplace") as f:
         try:
             f.write("tiktok " + media_id + "\n")
         except OSError as e:
