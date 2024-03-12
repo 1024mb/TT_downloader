@@ -4,9 +4,13 @@ import json
 import logging
 import os.path
 import re
+import shutil
+import subprocess
 import sys
+from datetime import datetime, UTC
 from typing import Optional, List, Tuple
 
+import exif
 import requests
 
 from __init__ import __version__
@@ -34,6 +38,8 @@ PATTERN_AUTHOR_NAME = "author_name"
 PATTERN_MEDIA_HEIGHT = "media_height"
 PATTERN_MEDIA_WIDTH = "media_width"
 PATTERN_MEDIA_ID = "media_id"
+PATTERN_COUNTRY = "country_code"
+PATTERN_URL = "url"
 
 PLATFORM = sys.platform
 
@@ -44,7 +50,9 @@ PATTERNS_TEMPLATE = {
     PATTERN_AUTHOR_NAME: None,
     PATTERN_MEDIA_HEIGHT: None,
     PATTERN_MEDIA_WIDTH: None,
-    PATTERN_MEDIA_ID: None
+    PATTERN_MEDIA_ID: None,
+    PATTERN_COUNTRY: None,
+    PATTERN_URL: None
 }
 
 global patterns
@@ -71,7 +79,7 @@ def main():
     parser.add_argument("--output-name",
                         help="Output name for the downloaded videos, available patterns: "
                              "%%description%%, %%author_id%%, %%author_name%%, %%media_height%%, %%media_width%%, "
-                             "%%media_id%%, %%mod_time%%",
+                             "%%media_id%%, %%mod_time%%, %%country%%, %%url%%",
                         required=True,
                         nargs="?")
     parser.add_argument("--log-level",
@@ -79,6 +87,10 @@ def main():
                         default="warning",
                         choices=["debug", "info", "warning", "error"],
                         type=str.lower)
+    parser.add_argument("--ffmpeg-path",
+                        help="Path to the ffmpeg binary. By default taken from PATH.",
+                        default=shutil.which("ffmpeg"),
+                        nargs="?")
 
     args = parser.parse_args()
 
@@ -86,6 +98,7 @@ def main():
     url_list_file = args.list_file
     archive_file = args.archive_file
     output_name = args.output_name
+    ffmpeg_path = args.ffmpeg_path
 
     log_level = logging.getLevelName(args.log_level.upper())
     logging.basicConfig(level=log_level, format="%(asctime)s %(levelname)s: %(message)s")
@@ -98,8 +111,13 @@ def main():
         logging.critical(f"Archive filepath is a directory: {archive_file}")
         sys.exit(1)
 
-    if url_list_file is not None and os.path.isdir(url_list_file):
-        logging.critical(f"List filepath is a directory: {url_list_file}")
+    if url_list_file is not None:
+        if not os.path.exists(url_list_file):
+            logging.critical(f"List file does not exist: {url_list_file}")
+            sys.exit(1)
+        if os.path.isdir(url_list_file):
+            logging.critical(f"List filepath is a directory: {url_list_file}")
+            sys.exit(1)
 
     url_list = []
     if url_list_file is not None:
@@ -120,7 +138,8 @@ def main():
 
         download_success, media_id, already_downloaded = download_media(url=url_sanitized,
                                                                         output_name=output_name,
-                                                                        archive_file=archive_file)
+                                                                        archive_file=archive_file,
+                                                                        ffmpeg_path=ffmpeg_path)
 
         if already_downloaded:
             print(f"Already downloaded: {media_id}")
@@ -138,7 +157,8 @@ def main():
 
 def download_media(url: str,
                    output_name: str,
-                   archive_file: Optional[str]) -> Tuple[bool, Optional[str], bool]:
+                   archive_file: Optional[str],
+                   ffmpeg_path: Optional[str]) -> Tuple[bool, Optional[str], bool]:
     global patterns
     patterns = copy.deepcopy(PATTERNS_TEMPLATE)  # reset patterns values
 
@@ -179,15 +199,15 @@ def download_media(url: str,
     if data["aweme_list"][0]["aweme_id"] != media_id:
         return False, media_id, False
 
-    setup_patterns(data["aweme_list"][0])
+    setup_patterns(data["aweme_list"][0], url)
 
     if is_photo:
         if download_photos(data["aweme_list"][0]["image_post_info"]["images"],
-                           output_name, media_id, patterns.get(PATTERN_MOD_TIME, 0)):
+                           output_name, media_id, patterns.get(PATTERN_MOD_TIME, 0), ffmpeg_path):
             return True, media_id, False
     else:
         for vid_url in data["aweme_list"][0]["video"]["play_addr"]["url_list"]:
-            if download_video(vid_url, output_name, patterns.get(PATTERN_MOD_TIME, 0)):
+            if download_video(vid_url, output_name, patterns.get(PATTERN_MOD_TIME, 0), ffmpeg_path):
                 return True, media_id, False
 
     return False, media_id, False
@@ -207,16 +227,18 @@ def get_output_name(output_name: str,
     global patterns
 
     if ignore_patterns is None:
-        for pattern in patterns.keys():
+        ignore_patterns = []
+
+    for pattern in patterns.keys():
+        if pattern in ignore_patterns:
+            continue
+        elif pattern == PATTERN_DESC:
+            value = sanitize_pattern(str(patterns.get(pattern, "")))[:190]
+        elif pattern == PATTERN_AUTHOR_NAME:
+            value = sanitize_pattern(str(patterns.get(pattern, "")))[:40]
+        else:
             value = sanitize_pattern(str(patterns.get(pattern, "")))
-            output_name = re.sub("%" + re.escape(pattern) + "%", value, output_name, flags=re.IGNORECASE)
-    else:
-        for pattern in patterns.keys():
-            if pattern in ignore_patterns:
-                continue
-            else:
-                value = sanitize_pattern(str(patterns.get(pattern, "")))
-                output_name = re.sub("%" + re.escape(pattern) + "%", value, output_name, flags=re.IGNORECASE)
+        output_name = re.sub("%" + re.escape(pattern) + "%", value, output_name, flags=re.IGNORECASE)
 
     if output_name.strip() == "":
         output_name = "_"
@@ -252,7 +274,8 @@ def sanitize_pattern(string: str) -> str:
 
 def download_video(url: str,
                    output_name: str,
-                   mod_time: int) -> bool:
+                   mod_time: int,
+                   ffmpeg_path: Optional[str]) -> bool:
     output_file = os.path.abspath(get_output_name(output_name))
 
     if not output_file.lower().endswith(".mp4"):
@@ -262,12 +285,18 @@ def download_video(url: str,
         logging.warning(f"File \"{output_file}\" already exists. Padding filename.")
         output_file = pad_filename(output_file)
 
-    return download_data(url, output_file, mod_time)
+    success = download_data(url, output_file)
+
+    if success:
+        if ffmpeg_path is not None:
+            add_tags_video(output_file, ffmpeg_path)
+        restore_modtime(output_file, mod_time)
+
+    return success
 
 
 def download_data(url: str,
-                  output_file: str,
-                  mod_time: int) -> bool:
+                  output_file: str) -> bool:
     sess = requests.session()
     sess.headers.update({"User-Agent": USER_AGENT})
 
@@ -322,19 +351,14 @@ def download_data(url: str,
     response.close()
     sess.close()
 
-    if mod_time != 0:
-        try:
-            os.utime(output_file, (mod_time, mod_time))
-        except PermissionError as e:
-            logging.error(e)
-
     return True
 
 
 def download_photos(data: List[dict],
                     output_name: str,
                     media_id: str,
-                    mod_time: int) -> bool:
+                    mod_time: int,
+                    ffmpeg_path: Optional[str]) -> bool:
 
     image_number = len(data)
 
@@ -379,16 +403,22 @@ def download_photos(data: List[dict],
     if image_number == 1:
         success = False
         for url in reversed(data[0]["owner_watermark_image"]["url_list"]):
-            if download_data(url, output_file, mod_time):
-                success = True
+            success = download_data(url, output_file)
+            if success:
+                if ffmpeg_path is not None:
+                    add_tags_photo(output_file)
+                restore_modtime(output_file, mod_time)
                 break
         results.append(success)
     else:
         for idx, image in enumerate(data):
             success = False
             for url in reversed(image["owner_watermark_image"]["url_list"]):
-                if download_data(url, output_file[idx], mod_time):
-                    success = True
+                success = download_data(url, output_file[idx])
+                if success:
+                    if ffmpeg_path is not None:
+                        add_tags_photo(output_file)
+                    restore_modtime(output_file, mod_time)
                     break
             results.append(success)
 
@@ -426,7 +456,8 @@ def setup_pattern_image(data: dict) -> None:
     patterns[PATTERN_MEDIA_WIDTH] = media_width
 
 
-def setup_patterns(data: dict) -> None:
+def setup_patterns(data: dict,
+                   url: str) -> None:
     global patterns
 
     try:
@@ -457,12 +488,10 @@ def setup_patterns(data: dict) -> None:
         media_width = data["video"]["play_addr"]["width"]  # type: Optional[int]
     except (TypeError, AttributeError, IndexError):
         media_width = None
-
-    if len(description) > 190:
-        description = description[:190]
-
-    if len(author_name) > 40:
-        author_name = author_name[:40]
+    try:
+        country = data["region"]  # type: Optional[str]
+    except (TypeError, AttributeError, IndexError):
+        country = None
 
     patterns[PATTERN_DESC] = description.strip()
     patterns[PATTERN_MOD_TIME] = mod_time
@@ -471,6 +500,86 @@ def setup_patterns(data: dict) -> None:
     patterns[PATTERN_MEDIA_HEIGHT] = media_height
     patterns[PATTERN_MEDIA_WIDTH] = media_width
     patterns[PATTERN_MEDIA_ID] = media_id.strip()
+    patterns[PATTERN_COUNTRY] = country.strip()
+    patterns[PATTERN_URL] = url
+
+
+def add_tags_video(output_file: str,
+                   ffmpeg_path: str) -> None:
+    global patterns
+
+    name, ext = os.path.splitext(output_file)
+
+    temp_output_file = name + "-temp" + ext
+
+    metadata_args = []
+
+    metadata = {
+        "comment": patterns[PATTERN_URL],
+        "purl": patterns[PATTERN_URL],
+        "description": patterns[PATTERN_DESC],
+        "synopsis": patterns[PATTERN_DESC],
+        "artist": patterns[PATTERN_AUTHOR_NAME],
+        "date": datetime.fromtimestamp(patterns[PATTERN_MOD_TIME], UTC).strftime("%Y%m%d"),
+        "country": patterns[PATTERN_COUNTRY]
+    }
+
+    for key, value in metadata.items():
+        metadata_args.extend(["-metadata", f"{key}={value}"])
+
+    cmd_args = [
+        ffmpeg_path,
+        "-i", output_file,
+        "-movflags", "use_metadata_tags",
+        "-map_metadata", "0",
+        *metadata_args,
+        "-c", "copy", "-y",
+        temp_output_file
+    ]
+
+    proc = subprocess.run(cmd_args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if proc.returncode != 0:
+        logging.error(f"Error adding tags to {output_file}")
+        try:
+            os.remove(temp_output_file)
+        except FileNotFoundError:
+            pass
+    else:
+        os.remove(output_file)
+        os.rename(temp_output_file, output_file)
+
+
+def add_tags_photo(output_file: str) -> None:
+    global patterns
+    name, ext = os.path.splitext(output_file)
+    tmp_file = name + "-temp" + ext
+
+    mod_time = datetime.fromtimestamp(patterns[PATTERN_MOD_TIME], UTC).strftime("%Y:%m:%d %H:%M:%S")
+
+    os.rename(output_file, tmp_file)
+
+    with open(tmp_file, mode="rb") as file:
+        image_file = exif.Image(file)
+
+    image_file.image_description = patterns[PATTERN_DESC].encode("ascii", "backslashreplace").decode("ascii")
+    image_file.artist = patterns[PATTERN_AUTHOR_NAME].encode("ascii", "backslashreplace").decode("ascii")
+    image_file.datetime_original = mod_time.encode("ascii", "backslashreplace").decode("ascii")
+    image_file.datetime_digitized = mod_time.encode("ascii", "backslashreplace").decode("ascii")
+    image_file.user_comment = patterns[PATTERN_URL].encode("ascii", "backslashreplace").decode("ascii")
+
+    with open(output_file, mode="wb") as file:
+        file.write(image_file.get_file())
+
+    os.remove(tmp_file)
+
+
+def restore_modtime(file: str,
+                    mod_time: int) -> None:
+    if mod_time != 0:
+        try:
+            os.utime(file, (mod_time, mod_time))
+        except PermissionError as e:
+            logging.error(e)
 
 
 def get_api_data(media_id: str,

@@ -6,6 +6,7 @@
 usage: TT_downloader [-h] [-v] [--list-file [LIST_FILE]]
                      [--archive-file [ARCHIVE_FILE]] --output-name
                      [OUTPUT_NAME] [--log-level {debug,info,warning,error}]
+                     [--ffmpeg-path [FFMPEG_PATH]]
                      [url ...]
 
 Download TikTok videos
@@ -24,10 +25,13 @@ options:
   --output-name [OUTPUT_NAME]
                         Output name for the downloaded videos, available
                         patterns: %description%, %author_id%, %author_name%,
-                        %media_height%, %media_width%, %media_id%, %mod_time%
+                        %media_height%, %media_width%, %media_id%, %mod_time%,
+                        %country%, %url%
   --log-level {debug,info,warning,error}
                         How much stuff is logged. One of 'debug', 'info',
                         'warning', 'error'.
+  --ffmpeg-path [FFMPEG_PATH]
+                        Path to the ffmpeg binary. By default taken from PATH.
 ```
 
 - You can specify one or more URLs and/or specify a text file containing URLs (one on each line). Both options can be
@@ -43,6 +47,11 @@ options:
   won't be neither skipped nor overwritten, a suffix will be appended.
 - The description max length is 190 characters, if it's longer the rest of the description is discarded.
 - The username max length is 40 characters, if it's longer the rest of the username is discarded.
+- FFMPEG is required to add metadata to video files. By default, if available in PATH, that is used, otherwise nothing
+  and no metadata will be added to video files.
+- Metadata added to image files is encoded as ASCII ([exif](https://pypi.org/project/exif) doesn't support unicode
+  data), this is mostly noticeable with the descriptions which won't show all characters, strings can be converted to
+  unicode easily.
 
 Examples:
 
@@ -75,6 +84,8 @@ These are the values per pattern:
 | **%media_width%**  | 576                                                                                                                                                                                             |
 | **%media_height%** | 1024                                                                                                                                                                                            |
 | **%description%**  | You gotta love all the love being spread at the #VisionaryVoices Black History Month brunch! 🖤tag your favorite #BlackTikTok Creator that also deserves a shoutout #VisionaryVoices #BlackHist |
+| **%country%**      | US                                                                                                                                                                                              |
+| **%url%**          | https://www.tiktok.com/@tiktok/video/7341092307438964011                                                                                                                                        |
 
 If this is used:
 
