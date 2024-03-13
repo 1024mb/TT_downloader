@@ -513,14 +513,16 @@ def add_tags_video(output_file: str,
     metadata_args = []
 
     metadata = {
-        "comment": patterns[PATTERN_URL],
-        "purl": patterns[PATTERN_URL],
-        "description": patterns[PATTERN_DESC],
-        "synopsis": patterns[PATTERN_DESC],
-        "artist": patterns[PATTERN_AUTHOR_NAME],
-        "date": datetime.fromtimestamp(patterns[PATTERN_MOD_TIME], UTC).strftime("%Y%m%d"),
-        "country": patterns[PATTERN_COUNTRY]
+        "comment": patterns.get(PATTERN_URL, ""),
+        "purl": patterns.get(PATTERN_URL, ""),
+        "description": patterns.get(PATTERN_DESC, ""),
+        "synopsis": patterns.get(PATTERN_DESC, ""),
+        "artist": patterns.get(PATTERN_AUTHOR_NAME, ""),
+        "country": patterns.get(PATTERN_COUNTRY, "")
     }
+
+    if patterns.get(PATTERN_MOD_TIME, 0) != 0:
+        metadata["date"] = datetime.fromtimestamp(patterns.get(PATTERN_MOD_TIME), UTC).strftime("%Y%m%d")
 
     for key, value in metadata.items():
         metadata_args.extend(["-metadata", f"{key}={value}"])
@@ -552,18 +554,20 @@ def add_tags_photo(output_file: str) -> None:
     name, ext = os.path.splitext(output_file)
     tmp_file = name + "-temp" + ext
 
-    mod_time = datetime.fromtimestamp(patterns[PATTERN_MOD_TIME], UTC).strftime("%Y:%m:%d %H:%M:%S")
+    mod_time = datetime.fromtimestamp(patterns.get(PATTERN_MOD_TIME, 0), UTC).strftime("%Y:%m:%d %H:%M:%S")
 
     os.rename(output_file, tmp_file)
 
     with open(tmp_file, mode="rb") as file:
         image_file = exif.Image(file)
 
-    image_file.image_description = patterns[PATTERN_DESC].encode("ascii", "backslashreplace").decode("ascii")
-    image_file.artist = patterns[PATTERN_AUTHOR_NAME].encode("ascii", "backslashreplace").decode("ascii")
-    image_file.datetime_original = mod_time.encode("ascii", "backslashreplace").decode("ascii")
-    image_file.datetime_digitized = mod_time.encode("ascii", "backslashreplace").decode("ascii")
-    image_file.user_comment = patterns[PATTERN_URL].encode("ascii", "backslashreplace").decode("ascii")
+    image_file.image_description = patterns.get(PATTERN_DESC, "").encode("ascii", "backslashreplace").decode("ascii")
+    image_file.artist = patterns.get(PATTERN_AUTHOR_NAME, "").encode("ascii", "backslashreplace").decode("ascii")
+    image_file.user_comment = patterns.get(PATTERN_URL, "").encode("ascii", "backslashreplace").decode("ascii")
+
+    if patterns.get(PATTERN_MOD_TIME, 0) != 0:
+        image_file.datetime_original = mod_time.encode("ascii", "backslashreplace").decode("ascii")
+        image_file.datetime_digitized = mod_time.encode("ascii", "backslashreplace").decode("ascii")
 
     with open(output_file, mode="wb") as file:
         file.write(image_file.get_file())
