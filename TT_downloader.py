@@ -405,8 +405,7 @@ def download_photos(data: List[dict],
         for url in reversed(data[0]["owner_watermark_image"]["url_list"]):
             success = download_data(url, output_file)
             if success:
-                if ffmpeg_path is not None:
-                    add_tags_photo(output_file)
+                add_tags_photo(output_file)
                 restore_modtime(output_file, mod_time)
                 break
         results.append(success)
@@ -416,8 +415,7 @@ def download_photos(data: List[dict],
             for url in reversed(image["owner_watermark_image"]["url_list"]):
                 success = download_data(url, output_file[idx])
                 if success:
-                    if ffmpeg_path is not None:
-                        add_tags_photo(output_file)
+                    add_tags_photo(output_file)
                     restore_modtime(output_file, mod_time)
                     break
             results.append(success)
