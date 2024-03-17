@@ -203,7 +203,7 @@ def download_media(url: str,
 
     if is_photo:
         if download_photos(data["aweme_list"][0]["image_post_info"]["images"],
-                           output_name, media_id, patterns.get(PATTERN_MOD_TIME, 0), ffmpeg_path):
+                           output_name, media_id, patterns.get(PATTERN_MOD_TIME, 0)):
             return True, media_id, False
     else:
         for vid_url in data["aweme_list"][0]["video"]["play_addr"]["url_list"]:
@@ -357,8 +357,7 @@ def download_data(url: str,
 def download_photos(data: List[dict],
                     output_name: str,
                     media_id: str,
-                    mod_time: int,
-                    ffmpeg_path: Optional[str]) -> bool:
+                    mod_time: int) -> bool:
 
     image_number = len(data)
 
