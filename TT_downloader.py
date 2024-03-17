@@ -16,9 +16,9 @@ import requests
 from __init__ import __version__
 
 API_LIST = (
-    "https://api19-core-c-useast1a.musical.ly/aweme/v1/feed/?aweme_id={}",
-    "https://api16-normal-c-useast1a.tiktokv.com/aweme/v1/feed/?aweme_id={}",
-    "https://api31-normal-useast2a.tiktokv.com/aweme/v1/aweme/detail/?aweme_id={}"
+    "https://api16-normal-c-useast2a.tiktokv.com/aweme/v1/feed/?aweme_id={}",
+    # "https://api19-core-c-useast2a.musical.ly/aweme/v1/feed/?aweme_id={}",
+    # "https://api31-normal-useast2a.tiktokv.com/aweme/v1/aweme/detail/?aweme_id={}"
 )
 
 API_M = ("&version_code=330304&app_name=musical_ly&channel=App&device_id=null&os_version=16.6&device_platform=iphone"
